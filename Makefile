@@ -1,6 +1,6 @@
-#############################################################################
+###############################################################################
 #                                                                             #
-# Makefile to build the aed2 water quality library                            #
+# Makefile to build the aed water quality library                             #
 #                                                                             #
 #  Developed by :                                                             #
 #      AquaticEcoDynamics (AED) Group                                         #
@@ -9,7 +9,7 @@
 #                                                                             #
 #      http://aquatic.science.uwa.edu.au/                                     #
 #                                                                             #
-#  Copyright 2013 - 2018 -  The University of Western Australia               #
+#  Copyright 2013 - 2020 -  The University of Western Australia               #
 #                                                                             #
 #   GLM is free software: you can redistribute it and/or modify               #
 #   it under the terms of the GNU General Public License as published by      #
@@ -29,21 +29,21 @@
 srcdir=src
 incdir=include
 
+ifeq ($(F90),)
+  F90=gfortran
+endif
+
 ifeq ($(SINGLE),true)
-  TARGET=lib/libaed2_s.a
+  TARGET=lib/libaed-water_s.a
   objdir=obj_s
   moddir=mod_s
 else
-  TARGET=lib/libaed2.a
+  TARGET=lib/libaed-water.a
   objdir=obj
   moddir=mod
 endif
 
 INCLUDES=-I${incdir}
-
-#ifneq ("$(wildcard ../libaed2-plus/Makefile)","")
-#  HAVEPLUS=-DHAVE_PLUS
-#endif
 
 ifeq ($(F90),ifort)
   INCLUDES+=-I/opt/intel/include
@@ -69,7 +69,11 @@ else ifeq ($(F90),pgfortran)
 else
   DEBUG_FFLAGS=-g -fbacktrace
   OPT_FFLAGS=-O3
-  FFLAGS=-fPIC -Wall -J ${moddir} -ffree-line-length-none -std=f2008 $(DEFINES) $(INCLUDES) -fall-intrinsics -Wno-unused -Wno-unused-dummy-argument -fno-range-check -Wno-integer-division
+  # we use std=f2008ts rather than f2008 because ts removes some type checking
+  # restrictions on interoperabilty routines (which were wrong anyway...)
+  FFLAGS=-fPIC -Wall -J ${moddir} -ffree-line-length-none -std=f2008ts
+  FFLAGS+=$(DEFINES) $(INCLUDES) -fall-intrinsics -Wno-unused -Wno-unused-dummy-argument
+  FFLAGS+=-fno-range-check -Wno-integer-division
   ifeq ($(WITH_CHECKS),true)
     FFLAGS+=-fcheck=all
   endif
@@ -96,33 +100,34 @@ endif
 
 FFLAGS+=$(DEBUG_FFLAGS) $(OPT_FFLAGS) $(HAVEPLUS)
 
-
-OBJS = \
-${objdir}/aed2_core.o \
-${objdir}/aed2_util.o \
-${objdir}/aed2_csv_reader.o \
-${objdir}/aed2_sedflux.o \
-${objdir}/aed2_chlorophylla.o \
-${objdir}/aed2_oxygen.o \
-${objdir}/ufz_oxygen.o \
-${objdir}/aed2_silica.o \
-${objdir}/aed2_carbon.o \
-${objdir}/aed2_nitrogen.o \
-${objdir}/aed2_phosphorus.o \
-${objdir}/aed2_organic_matter.o \
-${objdir}/aed2_bio_utils.o \
-${objdir}/aed2_phytoplankton.o \
-${objdir}/aed2_zoop_utils.o \
-${objdir}/aed2_zooplankton.o \
-${objdir}/aed2_tracer.o \
-${objdir}/aed2_noncohesive.o \
-${objdir}/aed2_totals.o \
-${objdir}/aed2_dummy.o \
-${objdir}/aed2_common.o
-
+OBJS=${objdir}/aed_core.o \
+     ${objdir}/aed_util.o \
+     ${objdir}/aed_bio_utils.o \
+     ${objdir}/aed_zoop_utils.o \
+     ${objdir}/aed_bio_particles.o \
+     ${objdir}/aed_csv_reader.o \
+     ${objdir}/aed_carbon.o \
+     ${objdir}/aed_dummy.o \
+     ${objdir}/aed_gctypes.o \
+     ${objdir}/aed_gclib.o \
+     ${objdir}/aed_gcsolver.o \
+     ${objdir}/aed_geochemistry.o \
+     ${objdir}/aed_nitrogen.o \
+     ${objdir}/aed_noncohesive.o \
+     ${objdir}/aed_organic_matter.o \
+     ${objdir}/aed_oxygen.o \
+     ${objdir}/aed_pathogens.o \
+     ${objdir}/aed_phosphorus.o \
+     ${objdir}/aed_phytoplankton.o \
+     ${objdir}/aed_sedflux.o \
+     ${objdir}/aed_silica.o \
+     ${objdir}/aed_totals.o \
+     ${objdir}/aed_tracer.o \
+     ${objdir}/aed_zooplankton.o \
+     ${objdir}/aed_water.o \
+     ${objdir}/aed_common.o
 
 all: $(TARGET)
-
 
 lib:
 	@mkdir lib
@@ -147,5 +152,9 @@ distclean: clean
 	@/bin/rm -rf obj obj_s
 	@/bin/rm -rf mod mod_s
 
-${objdir}/%.o: ${srcdir}/%.F90 ${srcdir}/aed2_core.F90 ${incdir}/aed2.h
+${objdir}/%.o: ${srcdir}/%.F90 ${srcdir}/aed_core.F90 ${incdir}/aed.h
 	$(F90) $(FFLAGS) -g -c $< -o $@
+
+${objdir}/aed_external.o: ${srcdir}/aed_external.F90 ${objdir}/aed_core.o ${incdir}/aed.h
+	$(F90) $(FFLAGS) -DLIBDEF -g -c $< -o $@
+${objdir}/aed_water.o: ${srcdir}/aed_water.F90 ${srcdir}/aed_core.F90 ${objdir}/aed_external.o ${incdir}/aed.h
