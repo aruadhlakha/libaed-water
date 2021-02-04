@@ -818,12 +818,16 @@ SUBROUTINE aed_calculate_phytoplankton(data,column,layer_idx)
       fXl = 1.0
       
      
-         mu = 1.81E+00
-         sigma = 1.37E+00
-    
+      open(12,  file='/home/rstudio/glm-a/libaed-water/src/data.txt' , status='old')
+      read(12,*) mu
+      close(12)
 
-      rng=r4_normal_ab(mu,sigma,seed_growth)/secs_per_day
 
+      rng=r4_normal_ab(mu,0.2E+00,seed_growth)/secs_per_day
+      open(10, file='/home/rstudio/glm-a/libaed-water/src/data.txt', status='REPLACE')
+      write (10, *) rng*secs_per_day
+      close(10)
+     
       !------------------------------------------------------------------------+
       ! Primary production rate
       primprod(phy_i) = rng * fT * findMin(fI,fNit,fPho,fSil) * fxl
